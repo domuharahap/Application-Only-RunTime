@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: nginx-deployment
+ labels:
+  app: nginx
+spec:
+ replicas: 3
+ selector:
+  matchLabels:
+   app: nginx
+ template:
+  metadata:
+   labels:
+    app: nginx
+  spec:
+   containers:
+   - name: nginx
+     image: nginx:1.14.2
+     ports:
+      - containerPort: 80
+     resources:
+      limits:
+       memory: 128Mi
+      requests:
+       memory: 128Mi
+     env:
+     - name: LD_PRELOAD
+       value: /opt/dynatrace/oneagent/agent/lib64/liboneagentproc.so
+     - name: DT_NETWORK_ZONE
+       value: <your_network_zone>
+     volumeMounts:
+     - mountPath: /opt/dynatrace/oneagent
+       name: oneagent
+   initContainers:
+   - name: install-oneagent
+     image: alpine:3.8
+     command:
+     - /bin/sh
+     args:
+     - -c
+     - ARCHIVE=$(mktemp) && wget -O $ARCHIVE "$DT_API_URL/v1/deployment/installer/agent/unix/paas/latest?Api-Token=$DT_PAAS_TOKEN&$DT_ONEAGENT_OPTIONS" && unzip -o
+-d /opt/dynatrace/oneagent $ARCHIVE && rm -f $ARCHIVE
+     env:
+     - name: DT_API_URL
+       value: https://<ENVIRONMENTID>.live.dynatrace.com/api
+     - name: DT_PAAS_TOKEN
+       value: <PAAS_TOKEN>
+     - name: DT_ONEAGENT_OPTIONS
+       value: flavor=default&include=nginx
+     volumeMounts:
+     - mountPath: /opt/dynatrace/oneagent
+       name: oneagent
+   volumes:
+   - name: oneagent
+     emptyDir: {}
